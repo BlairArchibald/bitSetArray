@@ -1,9 +1,11 @@
 {-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE MagicHash #-}
+{-# LANGUAGE DeriveGeneric #-}
+
 module Data.BitSetArrayIO
 (
   -- * BitSet Type
     BitSetArray
+  , IBitSetArray(..)
 
   -- * Construction
   , new
@@ -22,22 +24,37 @@ module Data.BitSetArrayIO
   , intersection
   , intersectionPopCount
 
+  -- * Mutable/Immutable Interface
+  , makeImmutable
+  , fromImmutable
+
   -- * Debugging/Printing
   , showBitSetArray
 ) where
 
 import Data.Array.Base
 import Data.Array.IO
-
 import Data.Bits ((.&.), (.|.), unsafeShiftR, countTrailingZeros, popCount, unsafeShiftL, complement)
-
+import Data.Serialize (Serialize)
 import Data.Word (Word64)
+
+import Control.DeepSeq (NFData, rnf)
 import Control.Monad
+
+import GHC.Generics (Generic)
 
 import Text.Printf
 
 -- Types
-data BitSetArray = BA {-# UNPACK #-} !Int (IOUArray Int Word64)
+data BitSetArray  =  BA {-# UNPACK #-} !Int (IOUArray Int Word64)
+
+data IBitSetArray = IBA {-# UNPACK #-} !Int (UArray Int Word64) deriving (Generic)
+
+instance Serialize IBitSetArray
+
+-- This simple instance can be used as unboxed arrays are already kept in NF
+instance NFData IBitSetArray where
+  rnf x = x `seq` ()
 
 -- Construction
 new :: Int -> IO BitSetArray
@@ -130,6 +147,16 @@ intersectionPopCount (BA s x) (BA _ y) =
           unsafeWrite x i ab
           go (cnt + pc) (i - 1)
 
+-- Mutable/Immutable Interface
+makeImmutable :: BitSetArray -> IO IBitSetArray
+makeImmutable (BA s v) = do
+  ia <- unsafeFreeze v :: IO (UArray Int Word64)
+  return $ IBA s ia
+
+fromImmutable :: IBitSetArray -> IO BitSetArray
+fromImmutable (IBA s v) = do
+  ma <- unsafeThaw v :: IO (IOUArray Int Word64)
+  return $ BA s ma
 
 -- Debugging
 showBitSetArray :: BitSetArray -> IO String
