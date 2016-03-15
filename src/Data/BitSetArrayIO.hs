@@ -1,10 +1,10 @@
-{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE BangPatterns  #-}
 {-# LANGUAGE DeriveGeneric #-}
 
 module Data.BitSetArrayIO
 (
   -- * BitSet Type
-    BitSetArray
+    BitSetArray(..)
   , IBitSetArray(..)
 
   -- * Construction
