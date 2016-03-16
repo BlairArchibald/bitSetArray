@@ -46,30 +46,42 @@ import GHC.Generics (Generic)
 import Text.Printf
 
 -- Types
+-- IOUArray and UArray are unboxed types making them strict and in NF by default (not strictness annotation necessary)
+-- | The BitSetArray type provides a strict, unpacked, mutable array of bits
 data BitSetArray  =  BA {-# UNPACK #-} !Int (IOUArray Int Word64)
 
+-- | The IBitSetArray type provides a strict, unpacked, immutable array of bits
 data IBitSetArray = IBA {-# UNPACK #-} !Int (UArray Int Word64) deriving (Generic)
 
 instance Serialize IBitSetArray
 
--- This simple instance can be used as unboxed arrays are already kept in NF
+-- This simple instance can be used as unboxed arrays are already kept in NF and
+-- the size argument is also unboxed and in NFand .
 instance NFData IBitSetArray where
   rnf x = x `seq` ()
 
 -- Construction
+-- | Create a new BitSetArray of a given size. Automatically rounds to the
+-- nearest word boundary
 new :: Int -> IO BitSetArray
 new n = do
   a <- newArray (0, blocks) 0
   return $ BA blocks a
   where blocks = n `unsafeShiftR` 6
 
+-- | Copy a BitSetArray maintaining it's contents
 copy :: BitSetArray -> IO BitSetArray
 copy (BA s xs) = do
+  -- Freeze forces a copy of the array. Not sure if there is an easier way to
+  -- copy an array
   cp <- (freeze xs :: IO (UArray Int Word64)) >>= unsafeThaw
   return $ BA s cp
 
 -- Updates
 
+-- | Insert a new integer into the BitSetArray. Does not do a bound check - the
+-- first argument must be less than the BitSetArray size. __Use with care__.
+-- Insertion of an element which is already in the BitSetArray has no effect.
 insert :: Int -> BitSetArray -> IO ()
 insert i (BA _ a) = do
   n <- unsafeRead a bx
@@ -77,6 +89,9 @@ insert i (BA _ a) = do
   where !bx = i `unsafeShiftR` 6
         !bi = i .&. 63
 
+-- | Remove a new integer into the BitSetArray. Does not do a bound check - the
+-- first argument must be less than the BitSetArray size. __Use with care__.
+-- Removal of an element which is not in the BitSetArray has no effect.
 remove :: Int -> BitSetArray -> IO ()
 remove i (BA _ a) = do
   n <- unsafeRead a bx
@@ -95,15 +110,19 @@ unsafeClearBit :: Word64 -> Int -> Word64
 unsafeClearBit w i = w .&. complement (1 `unsafeShiftL` i)
 
 -- Queries
+-- | Return the size of the BitSetArray. i.e the maximum argument to 'insert' or
+-- 'remove'
 maxIndex :: BitSetArray -> Int
 maxIndex (BA s _) = s
 
+-- | Return the first set bit (lsb) from the BitSetArray
 getFirst :: BitSetArray -> IO Int
 getFirst ba = fst <$> getFirstFromIndex 0 ba
 
--- Useful to be able to provide a starting index if you know that you have
--- already searched part of the set and haven't done any insertions. Java BitSet
--- has a similar API.
+-- | Return the first set bit (lsb) from the BitSetArray. The first argument
+-- allows you to specify the array position element to start searching from.
+-- Supplying the starting index if you know that you have already searched part
+-- of the set and have not done any insertions.
 getFirstFromIndex :: Int -> BitSetArray -> IO (Int, Int)
 {-# INLINE getFirstFromIndex #-}
 getFirstFromIndex from (BA s x) = go from
@@ -118,6 +137,8 @@ getFirstFromIndex from (BA s x) = go from
           else return (countTrailingZeros a + (i `unsafeShiftL` 6), i)
 
 -- Operations
+-- | Modify the first BitSetArray so that only elements which are present in
+-- both BitSetArray's are kept. i.e Bitwise and of the BitSets
 intersection :: BitSetArray -> BitSetArray -> IO ()
 intersection (BA s x) (BA _ y) = go s
   where
@@ -132,6 +153,10 @@ intersection (BA s x) (BA _ y) = go s
           go (i - 1)
 
 
+-- | Modify the first BitSetArray so that only elements which are present in
+-- both BitSetArray's are kept. i.e Bitwise and of the BitSets. Returns the
+-- number of bits which were present in both sets (the population count of the
+-- modified BitSet).
 intersectionPopCount :: BitSetArray -> BitSetArray -> IO Int
 intersectionPopCount (BA s x) (BA _ y) =
   go 0 s
@@ -148,17 +173,22 @@ intersectionPopCount (BA s x) (BA _ y) =
           go (cnt + pc) (i - 1)
 
 -- Mutable/Immutable Interface
+-- | Convert a BitSetArray to an immutable BitSetArray.
+-- __Does not perform a copy.__
 makeImmutable :: BitSetArray -> IO IBitSetArray
 makeImmutable (BA s v) = do
   ia <- unsafeFreeze v :: IO (UArray Int Word64)
   return $ IBA s ia
 
+-- | Convert an immutable BitSetArray to a BitSetArray.
+-- __Does not perform a copy.__
 fromImmutable :: IBitSetArray -> IO BitSetArray
 fromImmutable (IBA s v) = do
   ma <- unsafeThaw v :: IO (IOUArray Int Word64)
   return $ BA s ma
 
 -- Debugging
+-- | Print the low-level word representation of the BitSetArray.
 showBitSetArray :: BitSetArray -> IO String
 showBitSetArray (BA s v) = do
   l <- forM [0 .. s ] $ \i -> do
