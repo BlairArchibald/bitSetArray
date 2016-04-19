@@ -17,6 +17,7 @@ module Data.BitSetArrayIO
 
   -- * Queries
   , maxIndex
+  , contains
   , getFirst
   , getFirstFromIndex
 
@@ -28,13 +29,18 @@ module Data.BitSetArrayIO
   , makeImmutable
   , fromImmutable
 
+  -- * List Interface
+  , toList
+  , fromList
+
   -- * Debugging/Printing
   , showBitSetArray
 ) where
 
 import Data.Array.Base
 import Data.Array.IO
-import Data.Bits ((.&.), (.|.), unsafeShiftR, countTrailingZeros, popCount, unsafeShiftL, complement)
+import Data.Bits ((.&.), (.|.), unsafeShiftR, countTrailingZeros,
+                  popCount, unsafeShiftL, complement, testBit)
 import Data.Serialize (Serialize)
 import Data.Word (Word64)
 
@@ -115,6 +121,14 @@ unsafeClearBit w i = w .&. complement (1 `unsafeShiftL` i)
 maxIndex :: BitSetArray -> Int
 maxIndex (BA s _) = s
 
+-- | Returns true if the given item is contained within the BitSetArray
+contains :: BitSetArray -> Int -> IO Bool
+contains (BA _ a) i = do
+  n <- unsafeRead a bx
+  return $ testBit n bi
+  where !bx = i `unsafeShiftR` 6
+        !bi = i .&. 63
+
 -- | Return the first set bit (lsb) from the BitSetArray
 getFirst :: BitSetArray -> IO Int
 getFirst ba = fst <$> getFirstFromIndex 0 ba
@@ -186,6 +200,24 @@ fromImmutable :: IBitSetArray -> IO BitSetArray
 fromImmutable (IBA s v) = do
   ma <- unsafeThaw v :: IO (IOUArray Int Word64)
   return $ BA s ma
+
+-- List Interface
+-- | Convert a BitSetArray into a list of integers where an integer is in the
+-- list if it is set within the BitSetArray
+toList :: BitSetArray -> IO [Int]
+toList ba@(BA s a) = foldM inSet [] [1 .. s * 64]
+  where inSet acc i = do
+          c <- contains ba i
+          if c then return (i : acc)
+               else return acc
+
+-- | Construct a BitSetArray from a list of integers. Automatically figures out
+-- the correct array size by using the maximum value in the list.
+fromList :: [Int] -> IO BitSetArray
+fromList xs = do
+  ba <- new (maximum xs)
+  mapM_ (flip insert ba) xs
+  return ba
 
 -- Debugging
 -- | Print the low-level word representation of the BitSetArray.
