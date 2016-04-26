@@ -205,7 +205,7 @@ fromImmutable (IBA s v) = do
 -- | Convert a BitSetArray into a list of integers where an integer is in the
 -- list if it is set within the BitSetArray
 toList :: BitSetArray -> IO [Int]
-toList ba@(BA s a) = foldM inSet [] [1 .. s * 64]
+toList ba@(BA s a) = foldM inSet [] [0 .. (s + 1) * 64]
   where inSet acc i = do
           c <- contains ba i
           if c then return (i : acc)
