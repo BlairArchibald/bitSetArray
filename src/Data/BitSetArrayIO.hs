@@ -5,7 +5,6 @@ module Data.BitSetArrayIO
 (
   -- * BitSet Type
     BitSetArray(..)
-  , IBitSetArray(..)
 
   -- * Construction
   , new
@@ -26,8 +25,8 @@ module Data.BitSetArrayIO
   , intersectionPopCount
 
   -- * Mutable/Immutable Interface
-  , makeImmutable
-  , fromImmutable
+  -- , makeImmutable
+  -- , fromImmutable
 
   -- * List Interface
   , toList
@@ -41,8 +40,10 @@ import Data.Array.Base
 import Data.Array.IO
 import Data.Bits ((.&.), (.|.), unsafeShiftR, countTrailingZeros,
                   popCount, unsafeShiftL, complement, testBit)
+import Data.BitSetArray.Util (unsafeSetBit, unsafeClearBit)
 import Data.Serialize (Serialize)
 import Data.Word (Word64)
+
 
 import Control.DeepSeq (NFData, rnf)
 import Control.Monad
@@ -55,16 +56,6 @@ import Text.Printf
 -- IOUArray and UArray are unboxed types making them strict and in NF by default (not strictness annotation necessary)
 -- | The BitSetArray type provides a strict, unpacked, mutable array of bits
 data BitSetArray  =  BA {-# UNPACK #-} !Int (IOUArray Int Word64)
-
--- | The IBitSetArray type provides a strict, unpacked, immutable array of bits
-data IBitSetArray = IBA {-# UNPACK #-} !Int (UArray Int Word64) deriving (Generic)
-
-instance Serialize IBitSetArray
-
--- This simple instance can be used as unboxed arrays are already kept in NF and
--- the size argument is also unboxed and in NFand .
-instance NFData IBitSetArray where
-  rnf x = x `seq` ()
 
 -- Construction
 -- | Create a new BitSetArray of a given size. Automatically rounds to the
@@ -104,16 +95,6 @@ remove i (BA _ a) = do
   unsafeWrite a bx $ unsafeClearBit n bi
   where !bx = i `unsafeShiftR` 6
         !bi = i .&. 63
-
--- Clear/Set bit without the usual bounds check
-unsafeSetBit :: Word64 -> Int -> Word64
-{-# INLINE unsafeSetBit #-}
-unsafeSetBit w i = w .|. (1 `unsafeShiftL` i)
-
--- Clear bit without the bounds checks
-unsafeClearBit :: Word64 -> Int -> Word64
-{-# INLINE unsafeClearBit #-}
-unsafeClearBit w i = w .&. complement (1 `unsafeShiftL` i)
 
 -- Queries
 -- | Return the size of the BitSetArray. i.e the maximum argument to 'insert' or
@@ -187,19 +168,19 @@ intersectionPopCount (BA s x) (BA _ y) =
           go (cnt + pc) (i - 1)
 
 -- Mutable/Immutable Interface
--- | Convert a BitSetArray to an immutable BitSetArray.
--- __Does not perform a copy.__
-makeImmutable :: BitSetArray -> IO IBitSetArray
-makeImmutable (BA s v) = do
-  ia <- unsafeFreeze v :: IO (UArray Int Word64)
-  return $ IBA s ia
+-- -- | Convert a BitSetArray to an immutable BitSetArray.
+-- -- __Does not perform a copy.__
+-- makeImmutable :: BitSetArray -> IO IBitSetArray
+-- makeImmutable (BA s v) = do
+--   ia <- unsafeFreeze v :: IO (UArray Int Word64)
+--   return $ IBA s ia
 
--- | Convert an immutable BitSetArray to a BitSetArray.
--- __Does not perform a copy.__
-fromImmutable :: IBitSetArray -> IO BitSetArray
-fromImmutable (IBA s v) = do
-  ma <- unsafeThaw v :: IO (IOUArray Int Word64)
-  return $ BA s ma
+-- -- | Convert an immutable BitSetArray to a BitSetArray.
+-- -- __Does not perform a copy.__
+-- fromImmutable :: IBitSetArray -> IO BitSetArray
+-- fromImmutable (IBA s v) = do
+--   ma <- unsafeThaw v :: IO (IOUArray Int Word64)
+--   return $ BA s ma
 
 -- List Interface
 -- | Convert a BitSetArray into a list of integers where an integer is in the
