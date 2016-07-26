@@ -1,4 +1,5 @@
 import Data.BitSetArrayIO
+import qualified Data.IBitSetArray as I
 import Data.Array.Base
 
 import Data.Word (Word64)
@@ -109,3 +110,22 @@ main = hspec $ do
       insert 1 a1 -- to ensure it's a copy
       s <- showBitSetArray a2
       s `shouldBe` "0,[                                                               1]"
+
+  describe "IBitArray.new" $
+    it "Constructs an array of size rounded to the next 64 bit aligment" $ do
+      I.maxIndex (I.new 63) `shouldBe` 0
+      I.maxIndex (I.new 64) `shouldBe` 1
+      I.maxIndex (I.new 150) `shouldBe` 2
+
+  describe "IBitArray.insert" $
+    it "Inserts an element into the array" $ do
+      show (I.insert 0 (I.new 50)) `shouldBe` "IBA 0 (array (0,0) [(0,1)])"
+      show (I.insert 1 (I.new 50)) `shouldBe` "IBA 0 (array (0,0) [(0,2)])"
+      show (I.insert 64 (I.new 70)) `shouldBe` "IBA 1 (array (0,1) [(0,0),(1,1)])"
+
+  -- Could also do properties here
+  describe "IBitArray.remove" $
+    it "Remove an element from the array" $ do
+      show (I.remove 0 (I.insert 0 (I.new 50))) `shouldBe` "IBA 0 (array (0,0) [(0,0)])"
+      show (I.remove 1 (I.insert 1 (I.new 50))) `shouldBe` "IBA 0 (array (0,0) [(0,0)])"
+      show (I.remove 64 (I.insert 64 (I.new 70))) `shouldBe` "IBA 1 (array (0,1) [(0,0),(1,0)])"
