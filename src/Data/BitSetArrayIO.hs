@@ -25,8 +25,8 @@ module Data.BitSetArrayIO
   , intersectionPopCount
 
   -- * Mutable/Immutable Interface
-  -- , makeImmutable
-  -- , fromImmutable
+  , makeImmutable
+  , fromImmutable
 
   -- * List Interface
   , toList
@@ -51,6 +51,8 @@ import Control.Monad
 import GHC.Generics (Generic)
 
 import Text.Printf
+
+import qualified Data.IBitSetArray as I
 
 -- Types
 -- IOUArray and UArray are unboxed types making them strict and in NF by default (not strictness annotation necessary)
@@ -168,19 +170,15 @@ intersectionPopCount (BA s x) (BA _ y) =
           go (cnt + pc) (i - 1)
 
 -- Mutable/Immutable Interface
--- -- | Convert a BitSetArray to an immutable BitSetArray.
--- -- __Does not perform a copy.__
--- makeImmutable :: BitSetArray -> IO IBitSetArray
--- makeImmutable (BA s v) = do
---   ia <- unsafeFreeze v :: IO (UArray Int Word64)
---   return $ IBA s ia
+-- | Convert a BitSetArray to an immutable BitSetArray.
+-- __Does not perform a copy.__
+makeImmutable :: BitSetArray -> IO I.IBitSetArray
+makeImmutable (BA s v) = I.IBA s <$> unsafeFreeze v
 
--- -- | Convert an immutable BitSetArray to a BitSetArray.
--- -- __Does not perform a copy.__
--- fromImmutable :: IBitSetArray -> IO BitSetArray
--- fromImmutable (IBA s v) = do
---   ma <- unsafeThaw v :: IO (IOUArray Int Word64)
---   return $ BA s ma
+-- | Convert an immutable BitSetArray to a BitSetArray.
+-- __Does not perform a copy.__
+fromImmutable :: I.IBitSetArray-> IO BitSetArray
+fromImmutable (I.IBA s v) = BA s <$> unsafeThaw v
 
 -- List Interface
 -- | Convert a BitSetArray into a list of integers where an integer is in the
