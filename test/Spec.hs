@@ -117,6 +117,7 @@ main = hspec $ do
       I.maxIndex (I.new 64) `shouldBe` 1
       I.maxIndex (I.new 150) `shouldBe` 2
 
+  -- I don't need show if I get an Eq instance
   describe "IBitArray.insert" $
     it "Inserts an element into the array" $ do
       show (I.insert 0 (I.new 50)) `shouldBe` "IBA 0 (array (0,0) [(0,1)])"
@@ -129,3 +130,20 @@ main = hspec $ do
       show (I.remove 0 (I.insert 0 (I.new 50))) `shouldBe` "IBA 0 (array (0,0) [(0,0)])"
       show (I.remove 1 (I.insert 1 (I.new 50))) `shouldBe` "IBA 0 (array (0,0) [(0,0)])"
       show (I.remove 64 (I.insert 64 (I.new 70))) `shouldBe` "IBA 1 (array (0,1) [(0,0),(1,0)])"
+
+  describe "IBitArray.intersection" $
+    it "Performs bitwise and of two arrays" $ do
+      let a1 = I.fromList [1,4,5,6]
+          a2 = I.fromList [1,2,3,7]
+          a3 = I.fromList [1,4,3,7]
+      show (I.intersection a1 a2) `shouldBe` "IBA 0 (array (0,0) [(0,2)])"
+      show (I.intersection a1 a3) `shouldBe` "IBA 0 (array (0,0) [(0,18)])"
+
+  describe "IBitArray.getFirst" $
+    it "returns the first set element in the bitset" $ do
+      I.getFirst (I.fromList [5]) `shouldBe` 5
+
+  describe "IBitArray.contains" $
+    it "Returns true if an element is in the bitset" $ do
+      I.contains (I.fromList [5]) 5 `shouldBe` True
+      I.contains (I.fromList [5]) 3 `shouldBe` False
