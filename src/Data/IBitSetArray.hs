@@ -78,6 +78,13 @@ getFirstFromIndex from (IBA s x) = go from
 intersection :: IBitSetArray -> IBitSetArray -> IBitSetArray
 intersection (IBA s x) (IBA _ y) = IBA s (listArray (0, s) [((x ! i) .&. (y ! i)) | i <- [0 .. s]])
 
+-- TODO: Check the effeciency of this, not sure bout the: sum (map ...)
+-- | Return the intersection of two IBitSetArray so that only elements which are
+-- present in both IBitSetArray's are kept. i.e Bitwise and of the BitSets
+intersectionPopCount  :: IBitSetArray -> IBitSetArray -> (IBitSetArray, Int)
+intersectionPopCount  (IBA s x) (IBA _ y) = (IBA s (listArray (0, s) (map fst newA)), sum (map snd newA))
+  where newA = [((x ! i) .&. (y ! i), popCount ((x ! i) .&. (y ! i))) | i <- [0 .. s]]
+
 toList :: IBitSetArray -> [Int]
 toList ba@(IBA s x) = foldl inSet [] [(s+1)*64, (s+1)*63 - 1 .. 0]
   where inSet acc i = if contains ba i then i : acc else acc

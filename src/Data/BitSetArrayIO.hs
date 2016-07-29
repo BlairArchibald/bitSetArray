@@ -44,7 +44,6 @@ import Data.BitSetArray.Util (unsafeSetBit, unsafeClearBit)
 import Data.Serialize (Serialize)
 import Data.Word (Word64)
 
-
 import Control.DeepSeq (NFData, rnf)
 import Control.Monad
 
